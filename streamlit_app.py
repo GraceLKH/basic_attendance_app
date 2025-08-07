@@ -16,9 +16,18 @@ def load_data():
         st.session_state.users = pd.DataFrame(columns=["Email", "Phone", "Name", "Gender", "Age", "Address", "Org", "Role"])
 
     if os.path.exists(ATTENDANCE_FILE):
-        st.session_state.attendance = pd.read_csv(ATTENDANCE_FILE)
+        att_df = pd.read_csv(ATTENDANCE_FILE)
+        required_columns = ["Email/Phone", "Name", "Org", "Clock In Date", "Time", "Biometric Used"]
+        for col in required_columns:
+            if col not in att_df.columns:
+                att_df[col] = ""
+        st.session_state.attendance = att_df[required_columns]
     else:
         st.session_state.attendance = pd.DataFrame(columns=["Email/Phone", "Name", "Org", "Clock In Date", "Time", "Biometric Used"])
+    try:
+    att_df = pd.read_csv(ATTENDANCE_FILE)
+    except Exception:
+    att_df = pd.DataFrame(columns=["Email/Phone", "Name", "Org", "Clock In Date", "Time", "Biometric Used"])
 
     if os.path.exists(ORG_FILE):
         with open(ORG_FILE, 'r') as f:
