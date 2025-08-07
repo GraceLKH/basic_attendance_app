@@ -39,8 +39,9 @@ if 'users' not in st.session_state:
 
 # === Helper functions ===
 def get_user(identifier):
+    identifier = str(identifier).strip().lower()
     users = st.session_state.users
-    return users[(users['Email'] == identifier) | (users['Phone'] == identifier)]
+    return users[(users['Email'].str.lower() == identifier) | (users['Phone'].astype(str) == identifier)]
 
 def get_user_org(identifier):
     user = get_user(identifier)
@@ -48,11 +49,14 @@ def get_user_org(identifier):
 
 def register_user(email, phone, name, gender, age, address, org, role="user"):
     users = st.session_state.users
+    email = email.strip().lower() if email else ""
+    phone = str(phone).strip() if phone else ""
+
     if email == '' and phone == '':
         st.warning("Either email or phone must be provided.")
         return
 
-    existing_user = users[(users["Email"] == email) | (users["Phone"] == phone)]
+    existing_user = users[(users["Email"].str.lower() == email) | (users["Phone"].astype(str) == phone)]
     if not existing_user.empty:
         st.warning("User already exists!")
         return
@@ -76,6 +80,7 @@ def register_user(email, phone, name, gender, age, address, org, role="user"):
     st.success(f"✅ Registered {role} successfully!")
 
 def clock_in_user(identifier, org, biometric_used):
+    identifier = str(identifier).strip().lower()
     users = st.session_state.users
     attendance = st.session_state.attendance
     user = get_user(identifier)
@@ -85,14 +90,17 @@ def clock_in_user(identifier, org, biometric_used):
         return
 
     user_email = user['Email'].values[0]
-    user_phone = user['Phone'].values[0]
+    user_phone = str(user['Phone'].values[0])
     user_name = user['Name'].values[0]
     user_org = user['Org'].values[0]
     today = datetime.today().date()
 
     normalized_id = user_email if user_email else user_phone
 
-    existing = attendance[(attendance['Email/Phone'] == normalized_id) &
+    if "Clock In Date" not in attendance.columns:
+        attendance["Clock In Date"] = ""
+
+    existing = attendance[(attendance['Email/Phone'].str.lower() == normalized_id.lower()) &
                           (attendance['Clock In Date'] == str(today)) &
                           (attendance['Org'] == user_org)]
 
@@ -114,6 +122,7 @@ def clock_in_user(identifier, org, biometric_used):
     st.success("✅ Clocked in successfully.")
 
 def admin_view(identifier):
+    identifier = str(identifier).strip().lower()
     users = st.session_state.users
     attendance = st.session_state.attendance
     admin_user = get_user(identifier)
