@@ -2,11 +2,14 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
+
 # Initialize session state
 if 'users' not in st.session_state:
     st.session_state.users = pd.DataFrame(columns=["Email", "Phone", "Name", "Gender", "Age", "Home Address", "Org", "Role"])
 if 'attendance' not in st.session_state:
     st.session_state.attendance = pd.DataFrame(columns=["Email/Phone", "Name", "Org", "Clock In Date", "Time", "Biometric Used"])
+if "organizations" not in st.session_state:
+    st.session_state.organizations = []  # or preload a few orgs if needed
 
 # Helper functions
 def get_user(identifier):
