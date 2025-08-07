@@ -1,16 +1,41 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import os
+
+# === Persistent Storage (CSV files) ===
+USERS_FILE = "users.csv"
+ATTENDANCE_FILE = "attendance.csv"
+ORG_FILE = "orgs.csv"
+
+# === Load Data from Files ===
+def load_data():
+    if os.path.exists(USERS_FILE):
+        st.session_state.users = pd.read_csv(USERS_FILE)
+    else:
+        st.session_state.users = pd.DataFrame(columns=["Email", "Phone", "Name", "Gender", "Age", "Address", "Org", "Role"])
+
+    if os.path.exists(ATTENDANCE_FILE):
+        st.session_state.attendance = pd.read_csv(ATTENDANCE_FILE)
+    else:
+        st.session_state.attendance = pd.DataFrame(columns=["Email/Phone", "Name", "Org", "Clock In Date", "Time", "Biometric Used"])
+
+    if os.path.exists(ORG_FILE):
+        with open(ORG_FILE, 'r') as f:
+            st.session_state.organizations = f.read().splitlines()
+    else:
+        st.session_state.organizations = []
+
+# === Save Data to Files ===
+def save_data():
+    st.session_state.users.to_csv(USERS_FILE, index=False)
+    st.session_state.attendance.to_csv(ATTENDANCE_FILE, index=False)
+    with open(ORG_FILE, 'w') as f:
+        f.write('\n'.join(st.session_state.organizations))
 
 # === Initialize session state ===
 if 'users' not in st.session_state:
-    st.session_state.users = pd.DataFrame(columns=["Email", "Phone", "Name", "Gender", "Age", "Address", "Org", "Role"])
-
-if 'attendance' not in st.session_state:
-    st.session_state.attendance = pd.DataFrame(columns=["Email/Phone", "Name", "Org", "Clock In Date", "Time", "Biometric Used"])
-
-if 'organizations' not in st.session_state:
-    st.session_state.organizations = []
+    load_data()
 
 # === Helper functions ===
 def get_user(identifier):
@@ -23,19 +48,15 @@ def get_user_org(identifier):
 
 def register_user(email, phone, name, gender, age, address, org, role="user"):
     users = st.session_state.users
+    if email == '' and phone == '':
+        st.warning("Either email or phone must be provided.")
+        return
 
-    # Check if user exists by email or phone
-    existing_user = pd.DataFrame()
-    if email:
-        existing_user = users[users["Email"] == email]
-    if phone and existing_user.empty:
-        existing_user = users[users["Phone"] == phone]
-
+    existing_user = users[(users["Email"] == email) | (users["Phone"] == phone)]
     if not existing_user.empty:
         st.warning("User already exists!")
         return
 
-    # Add organization if not already present
     if org and org not in st.session_state.organizations:
         st.session_state.organizations.append(org)
 
@@ -50,7 +71,8 @@ def register_user(email, phone, name, gender, age, address, org, role="user"):
         "Role": role
     }
 
-    st.session_state.users = pd.concat([st.session_state.users, pd.DataFrame([new_row])], ignore_index=True)
+    st.session_state.users = pd.concat([users, pd.DataFrame([new_row])], ignore_index=True)
+    save_data()
     st.success(f"✅ Registered {role} successfully!")
 
 def clock_in_user(identifier, org, biometric_used):
@@ -70,11 +92,9 @@ def clock_in_user(identifier, org, biometric_used):
 
     normalized_id = user_email if user_email else user_phone
 
-    existing = attendance[
-        (attendance['Email/Phone'] == normalized_id) &
-        (attendance['Clock In Date'] == str(today)) &
-        (attendance['Org'] == user_org)
-    ]
+    existing = attendance[(attendance['Email/Phone'] == normalized_id) &
+                          (attendance['Clock In Date'] == str(today)) &
+                          (attendance['Org'] == user_org)]
 
     if not existing.empty:
         st.info("You have already clocked in today.")
@@ -89,7 +109,8 @@ def clock_in_user(identifier, org, biometric_used):
         "Biometric Used": biometric_used
     }
 
-    st.session_state.attendance = pd.concat([st.session_state.attendance, pd.DataFrame([new_row])], ignore_index=True)
+    st.session_state.attendance = pd.concat([attendance, pd.DataFrame([new_row])], ignore_index=True)
+    save_data()
     st.success("✅ Clocked in successfully.")
 
 def admin_view(identifier):
