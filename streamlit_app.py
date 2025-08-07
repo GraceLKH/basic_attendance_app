@@ -17,26 +17,33 @@ def get_user_org(identifier):
     user = get_user(identifier)
     return user['Org'].values[0] if not user.empty else None
 
-def register_user(email, phone, name, gender, age, address, org, role):
-    if not email and not phone:
-        st.error("Please provide at least Email or Phone.")
+def register_user(email, phone, name, gender, age, address, org, role="user"):
+    users = st.session_state.users
+
+    # Safer duplicate check
+    existing_user = pd.DataFrame()
+    if email:
+        existing_user = users[users["Email"] == email]
+    if phone and existing_user.empty:
+        existing_user = users[users["Phone"] == phone]
+
+    if not existing_user.empty:
+        st.warning("User already exists!")
         return
 
-    if get_user(email).empty and get_user(phone).empty:
-        new_row = {
-            "Email": email,
-            "Phone": str(phone),
-            "Name": name,
-            "Gender": gender,
-            "Age": age,
-            "Home Address": address,
-            "Org": org,
-            "Role": role
-        }
-        st.session_state.users = pd.concat([st.session_state.users, pd.DataFrame([new_row])], ignore_index=True)
-        st.success("User registered successfully.")
-    else:
-        st.warning("User already exists.")
+    new_row = {
+        "Email": email,
+        "Phone": phone,
+        "Name": name,
+        "Gender": gender,
+        "Age": age,
+        "Address": address,
+        "Org": org,
+        "Role": role
+    }
+
+    st.session_state.users = pd.concat([st.session_state.users, pd.DataFrame([new_row])], ignore_index=True)
+    st.success(f"✅ Registered {role} successfully!")
 
 def clock_in_user(identifier, org, biometric_used):
     users = st.session_state.users
