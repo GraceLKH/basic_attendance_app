@@ -133,19 +133,38 @@ if menu == "Register":
 if menu == "Clock In":
     st.subheader("⏱️ Clock In")
     st.info("You only need to enter either Email or Phone.")
-    id_input = st.text_input("Email or Phone")
-    remember_me = st.checkbox("Use saved profile")
-    biometric_used = "Yes" if remember_me else "No"
 
-    # Auto-org detection
-    org = get_user_org(id_input)
-    if not org and not remember_me:
-        orgs = st.session_state.users['Org'].unique().tolist()
-        org = st.selectbox("Select Organization", orgs)
+    # Check if user wants to auto-use saved profile
+    use_saved = st.checkbox("Use saved profile")
+    id_input = ""
+    org = None
+
+    if use_saved and "last_user" in st.session_state:
+        last = st.session_state.last_user
+        id_input = last.get("Email") or last.get("Phone")
+        org = last.get("Org")
+        st.success(f"Welcome back, {last.get('Name')} from {org}")
+    else:
+        id_input = st.text_input("Email or Phone")
+        org = get_user_org(id_input)
+        if not org:
+            orgs = st.session_state.users['Org'].unique().tolist()
+            if orgs:
+                org = st.selectbox("Select Organization", orgs)
+            else:
+                st.warning("No organizations found. Please register first.")
+
+    remember_me = st.checkbox("Remember Me for future clock-ins", value=True)
+    biometric_used = "Yes" if use_saved else "No"
 
     if st.button("Clock In"):
         if id_input:
             clock_in_user(id_input, org, biometric_used)
+
+            # Save preference if enabled
+            user_row = get_user(id_input)
+            if remember_me and not user_row.empty:
+                st.session_state.last_user = user_row.iloc[0].to_dict()
         else:
             st.error("Please enter your Email or Phone.")
 
