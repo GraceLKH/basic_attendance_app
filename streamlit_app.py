@@ -24,10 +24,10 @@ attendance_df = pd.read_csv(ATTENDANCE_FILE)
 st.title("📌 Biometric-Style Attendance App (Email or Phone Clock-in)")
 
 # Choose between Register or Clock In
-mode = st.radio("Choose Mode", ["Register (First Time)", "Clock In"])
+mode = st.radio("Choose Mode", ["Register (First Time or Update)", "Clock In"])
 
-if mode == "Register (First Time)":
-    st.subheader("🔐 Register Your Info")
+if mode == "Register (First Time or Update)":
+    st.subheader("🔐 Register or Update Your Info")
     name = st.text_input("Full Name")
     gender = st.selectbox("Gender", ["Male", "Female", "Other"])
     age = st.number_input("Age", min_value=1, max_value=100, step=1)
@@ -35,16 +35,32 @@ if mode == "Register (First Time)":
     email = st.text_input("Email Address (Optional)")
     address = st.text_area("Home Address (Optional)")
 
-    if st.button("Register"):
+    if st.button("Register / Update"):
         if not name or not phone:
             st.warning("Full Name and Phone Number are required.")
-        elif phone in users_df["Phone"].values or (email and email in users_df["Email"].values):
-            st.warning("This phone/email is already registered.")
         else:
-            new_user = pd.DataFrame([[email, phone, name, gender, age, address]],
-                                    columns=users_df.columns)
-            new_user.to_csv(USER_DATA_FILE, mode='a', header=False, index=False)
-            st.success("✅ Registration successful. You can now clock in using your email or phone.")
+            updated = False
+            index = None
+
+            # Check if phone or email already exists
+            if phone in users_df["Phone"].values:
+                index = users_df[users_df["Phone"] == phone].index[0]
+                updated = True
+            elif email and email in users_df["Email"].values:
+                index = users_df[users_df["Email"] == email].index[0]
+                updated = True
+
+            new_data = {"Email": email, "Phone": phone, "Name": name, "Gender": gender, "Age": age, "Home Address": address}
+
+            if updated:
+                for col, val in new_data.items():
+                    users_df.at[index, col] = val
+                users_df.to_csv(USER_DATA_FILE, index=False)
+                st.success("🔁 Information updated successfully.")
+            else:
+                new_user = pd.DataFrame([new_data])
+                new_user.to_csv(USER_DATA_FILE, mode='a', header=False, index=False)
+                st.success("✅ Registration successful. You can now clock in using your email or phone.")
 
 elif mode == "Clock In":
     st.subheader("⏰ Clock In")
