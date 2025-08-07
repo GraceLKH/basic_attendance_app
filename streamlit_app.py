@@ -21,7 +21,7 @@ if not os.path.exists(ATTENDANCE_FILE):
 users_df = pd.read_csv(USER_DATA_FILE)
 attendance_df = pd.read_csv(ATTENDANCE_FILE)
 
-st.title("📌 Biometric-Style Attendance App (Email or Phone Clock-in)")
+st.title("📌 Basic Attendance App (Email or Phone Clock-in)")
 
 # Choose between Register or Clock In
 mode = st.radio("Choose Mode", ["Register (First Time or Update)", "Clock In"])
