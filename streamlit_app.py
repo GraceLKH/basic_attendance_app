@@ -2,16 +2,17 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-
-# Initialize session state
+# === Initialize session state ===
 if 'users' not in st.session_state:
-    st.session_state.users = pd.DataFrame(columns=["Email", "Phone", "Name", "Gender", "Age", "Home Address", "Org", "Role"])
+    st.session_state.users = pd.DataFrame(columns=["Email", "Phone", "Name", "Gender", "Age", "Address", "Org", "Role"])
+
 if 'attendance' not in st.session_state:
     st.session_state.attendance = pd.DataFrame(columns=["Email/Phone", "Name", "Org", "Clock In Date", "Time", "Biometric Used"])
-if "organizations" not in st.session_state:
-    st.session_state.organizations = []  # or preload a few orgs if needed
 
-# Helper functions
+if 'organizations' not in st.session_state:
+    st.session_state.organizations = []
+
+# === Helper functions ===
 def get_user(identifier):
     users = st.session_state.users
     return users[(users['Email'] == identifier) | (users['Phone'] == identifier)]
@@ -23,7 +24,7 @@ def get_user_org(identifier):
 def register_user(email, phone, name, gender, age, address, org, role="user"):
     users = st.session_state.users
 
-    # Safer duplicate check
+    # Check if user exists by email or phone
     existing_user = pd.DataFrame()
     if email:
         existing_user = users[users["Email"] == email]
@@ -33,6 +34,10 @@ def register_user(email, phone, name, gender, age, address, org, role="user"):
     if not existing_user.empty:
         st.warning("User already exists!")
         return
+
+    # Add organization if not already present
+    if org and org not in st.session_state.organizations:
+        st.session_state.organizations.append(org)
 
     new_row = {
         "Email": email,
@@ -57,14 +62,12 @@ def clock_in_user(identifier, org, biometric_used):
         st.error("❌ Identifier not found. Please register first.")
         return
 
-    # Normalize the identifier for consistent matching and logging
     user_email = user['Email'].values[0]
     user_phone = user['Phone'].values[0]
     user_name = user['Name'].values[0]
     user_org = user['Org'].values[0]
     today = datetime.today().date()
 
-    # Prefer email if available, else phone
     normalized_id = user_email if user_email else user_phone
 
     existing = attendance[
@@ -101,18 +104,18 @@ def admin_view(identifier):
     org = admin_user["Org"].values[0]
     org_attendance = attendance[attendance["Org"] == org]
 
-    st.subheader(f"⏱️Attendance Records for {org}")
+    st.subheader(f"⏱️ Attendance Records for {org}")
     st.dataframe(org_attendance)
 
     csv = org_attendance.to_csv(index=False).encode('utf-8')
     st.download_button("Download CSV", csv, f"{org}_attendance.csv", "text/csv")
 
-# Streamlit UI
+# === Streamlit UI ===
 st.title("⏱️ Attendance App")
 
 menu = st.sidebar.selectbox("Menu", ["Register", "Clock In", "Admin View", "Create Organization"])
 
-# Create Organization (Admin)
+# === Create Organization (Admin) ===
 if menu == "Create Organization":
     st.subheader("👨‍💼 Create Organization")
     st.info("This section is for admin to create organizations and register themselves.")
@@ -131,7 +134,7 @@ if menu == "Create Organization":
         else:
             st.warning("Organization name is required.")
 
-# User Registration
+# === User Registration ===
 if menu == "Register":
     st.subheader("📝 User Registration")
     email = st.text_input("Email (Either Email or Phone required)")
@@ -140,18 +143,19 @@ if menu == "Register":
     gender = st.selectbox("Gender", ["Male", "Female"])
     age = st.number_input("Age", min_value=10, max_value=100)
     address = st.text_input("Home Address (Optional)")
-    orgs = st.session_state.users['Org'].unique().tolist()
-    org = st.selectbox("Select Organization", orgs)
 
-    if st.button("Register"):
-        register_user(email, phone, name, gender, age, address, org, "user")
+    if st.session_state.organizations:
+        org = st.selectbox("Select Organization", st.session_state.organizations)
+        if st.button("Register"):
+            register_user(email, phone, name, gender, age, address, org, "user")
+    else:
+        st.warning("No organizations available. Please ask admin to create one.")
 
-# Clock In
+# === Clock In ===
 if menu == "Clock In":
     st.subheader("⏱️ Clock In")
     st.info("You only need to enter either Email or Phone.")
 
-    # Check if user wants to auto-use saved profile
     use_saved = st.checkbox("Use saved profile")
     id_input = ""
     org = None
@@ -164,12 +168,10 @@ if menu == "Clock In":
     else:
         id_input = st.text_input("Email or Phone")
         org = get_user_org(id_input)
-        if not org:
-            orgs = st.session_state.users['Org'].unique().tolist()
-            if orgs:
-                org = st.selectbox("Select Organization", orgs)
-            else:
-                st.warning("No organizations found. Please register first.")
+        if not org and st.session_state.organizations:
+            org = st.selectbox("Select Organization", st.session_state.organizations)
+        elif not org:
+            st.warning("No organizations found. Please register first.")
 
     remember_me = st.checkbox("Remember Me for future clock-ins", value=True)
     biometric_used = "Yes" if use_saved else "No"
@@ -177,15 +179,13 @@ if menu == "Clock In":
     if st.button("Clock In"):
         if id_input:
             clock_in_user(id_input, org, biometric_used)
-
-            # Save preference if enabled
             user_row = get_user(id_input)
             if remember_me and not user_row.empty:
                 st.session_state.last_user = user_row.iloc[0].to_dict()
         else:
             st.error("Please enter your Email or Phone.")
 
-# Admin View
+# === Admin View ===
 if menu == "Admin View":
     st.subheader("🔐 Admin Login to View Attendance")
     admin_input = st.text_input("Admin Email or Phone")
