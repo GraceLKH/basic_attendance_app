@@ -109,9 +109,11 @@ def clock_in_user(identifier, org, biometric_used):
     if "Clock In Date" not in attendance.columns:
         attendance["Clock In Date"] = ""
 
-    existing = attendance[(attendance['Email/Phone'].str.lower() == normalized_id.lower()) &
-                          (attendance['Clock In Date'] == str(today)) &
-                          (attendance['Org'] == user_org)]
+    existing = attendance[
+    (attendance['Email/Phone'].astype(str).str.lower() == normalized_id.lower()) &
+    (attendance['Clock In Date'] == str(today)) &
+    (attendance['Org'] == user_org)
+    ]
 
     if not existing.empty:
         st.info("You have already clocked in today.")
