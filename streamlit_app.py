@@ -100,8 +100,8 @@ if menu == "Create Organization":
     st.subheader("👨‍💼 Create Organization")
     st.info("This section is for admin to create organizations and register themselves.")
 
-    email = st.text_input("Email (Optional)")
-    phone = st.text_input("Phone (Optional)")
+    email = st.text_input("Email (Either Email or Phone required)")
+    phone = st.text_input("Phone (Either Email or Phone required)")
     name = st.text_input("Admin Name")
     gender = st.selectbox("Gender", ["Male", "Female"])
     age = st.number_input("Age", min_value=18, max_value=100)
@@ -117,8 +117,8 @@ if menu == "Create Organization":
 # User Registration
 if menu == "Register":
     st.subheader("📝 User Registration")
-    email = st.text_input("Email (Optional)")
-    phone = st.text_input("Phone (Optional)")
+    email = st.text_input("Email (Either Email or Phone required)")
+    phone = st.text_input("Phone (Either Email or Phone required)")
     name = st.text_input("Full Name")
     gender = st.selectbox("Gender", ["Male", "Female"])
     age = st.number_input("Age", min_value=10, max_value=100)
@@ -134,7 +134,7 @@ if menu == "Clock In":
     st.subheader("⏱️ Clock In")
     st.info("You only need to enter either Email or Phone.")
     id_input = st.text_input("Email or Phone")
-    remember_me = st.checkbox("Use saved profile (simulate biometric)")
+    remember_me = st.checkbox("Use saved profile")
     biometric_used = "Yes" if remember_me else "No"
 
     # Auto-org detection
