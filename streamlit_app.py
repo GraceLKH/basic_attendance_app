@@ -91,7 +91,7 @@ def admin_view(identifier):
     st.download_button("Download CSV", csv, f"{org}_attendance.csv", "text/csv")
 
 # Streamlit UI
-st.title("Attendance App")
+st.title("⏱️ Attendance App")
 
 menu = st.sidebar.selectbox("Menu", ["Register", "Clock In", "Admin View", "Create Organization"])
 
