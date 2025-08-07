@@ -3,89 +3,110 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# File to store registered users
-USER_DATA_FILE = 'users.csv'
+# CSV file path
+CSV_FILE = "attendance.csv"
 
-# Today's date for attendance
-today = datetime.now().strftime('%Y%m%d')
-ATTENDANCE_FILE = f'attendance_{today}.csv'
+# Load or create DataFrame
+if os.path.exists(CSV_FILE):
+    attendance_df = pd.read_csv(CSV_FILE, dtype=str)  # Load all columns as string
+else:
+    attendance_df = pd.DataFrame(columns=["Email", "Phone", "Name", "Gender", "Age", "Home Address", "Last Clock-In"])
+    attendance_df.to_csv(CSV_FILE, index=False)
 
-# Ensure user and attendance files exist with proper headers
-if not os.path.exists(USER_DATA_FILE):
-    pd.DataFrame(columns=["Email", "Phone", "Name", "Gender", "Age", "Home Address"]).to_csv(USER_DATA_FILE, index=False)
+# Ensure all data is string type for consistent comparisons
+attendance_df = attendance_df.astype(str)
 
-if not os.path.exists(ATTENDANCE_FILE):
-    pd.DataFrame(columns=["Email/Phone", "Name", "Clock-in Time"]).to_csv(ATTENDANCE_FILE, index=False)
+# Save function
+def save_data():
+    attendance_df.to_csv(CSV_FILE, index=False)
 
-# Load existing data
-users_df = pd.read_csv(USER_DATA_FILE)
-attendance_df = pd.read_csv(ATTENDANCE_FILE)
+# Register function
+def register_user(email, phone, name, gender, age, address):
+    global attendance_df
 
-st.title("📌 Basic Attendance App (Email or Phone Clock-in)")
+    if not email and not phone:
+        st.error("❌ Please enter at least an Email or Phone number.")
+        return
 
-# Choose between Register or Clock In
-mode = st.radio("Choose Mode", ["Register (First Time or Update)", "Clock In"])
+    # Normalize values
+    email = email.strip()
+    phone = phone.strip()
 
-if mode == "Register (First Time or Update)":
-    st.subheader("🔐 Register or Update Your Info")
-    name = st.text_input("Full Name")
+    # Check if user already exists by email or phone
+    existing_idx = attendance_df[
+        (attendance_df['Email'] == email) | (attendance_df['Phone'] == phone)
+    ].index
+
+    if not existing_idx.empty:
+        # Update existing user
+        attendance_df.loc[existing_idx[0], ["Email", "Phone", "Name", "Gender", "Age", "Home Address"]] = [
+            email, phone, name, gender, age, address
+        ]
+        st.success("✅ User info updated.")
+    else:
+        # Append new user
+        new_row = pd.DataFrame([{
+            "Email": email,
+            "Phone": phone,
+            "Name": name,
+            "Gender": gender,
+            "Age": age,
+            "Home Address": address,
+            "Last Clock-In": ""
+        }])
+        attendance_df = pd.concat([attendance_df, new_row], ignore_index=True)
+        st.success("✅ User registered successfully.")
+
+    save_data()
+
+# Clock-in function
+def clock_in(identifier):
+    global attendance_df
+    identifier = identifier.strip()
+
+    match = attendance_df[
+        (attendance_df['Email'] == identifier) | (attendance_df['Phone'] == identifier)
+    ]
+
+    if not match.empty:
+        idx = match.index[0]
+        attendance_df.at[idx, "Last Clock-In"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        save_data()
+        st.success(f"✅ Clock-in successful for {attendance_df.at[idx, 'Name']}.")
+    else:
+        st.error("❌ Identifier not found. Please register first.")
+
+# Streamlit UI
+st.title("📍 Basic Attendance App (Email/Phone)")
+
+tab1, tab2 = st.tabs(["📋 Register", "🕓 Clock In"])
+
+with tab1:
+    st.subheader("Register New User")
+    email = st.text_input("Email (optional but recommended)")
+    phone = st.text_input("Phone (optional but recommended)")
+    name = st.text_input("Name *")
     gender = st.selectbox("Gender", ["Male", "Female", "Other"])
-    age = st.number_input("Age", min_value=1, max_value=100, step=1)
-    phone = st.text_input("Phone Number (Required)")
-    email = st.text_input("Email Address (Optional)")
+    age = st.number_input("Age", min_value=0, max_value=120, step=1)
     address = st.text_area("Home Address (Optional)")
 
     if st.button("Register / Update"):
-        if not name or not phone:
-            st.warning("Full Name and Phone Number are required.")
+        if not name:
+            st.error("❌ Name is required.")
+        elif not email and not phone:
+            st.error("❌ Please enter at least an Email or Phone number.")
         else:
-            updated = False
-            index = None
+            register_user(email, phone, name, gender, age, address)
 
-            # Check if phone or email already exists
-            if phone in users_df["Phone"].values:
-                index = users_df[users_df["Phone"] == phone].index[0]
-                updated = True
-            elif email and email in users_df["Email"].values:
-                index = users_df[users_df["Email"] == email].index[0]
-                updated = True
-
-            new_data = {"Email": email, "Phone": phone, "Name": name, "Gender": gender, "Age": age, "Home Address": address}
-
-            if updated:
-                for col, val in new_data.items():
-                    users_df.at[index, col] = val
-                users_df.to_csv(USER_DATA_FILE, index=False)
-                st.success("🔁 Information updated successfully.")
-            else:
-                new_user = pd.DataFrame([new_data])
-                new_user.to_csv(USER_DATA_FILE, mode='a', header=False, index=False)
-                st.success("✅ Registration successful. You can now clock in using your email or phone.")
-
-elif mode == "Clock In":
-    st.subheader("⏰ Clock In")
-    identifier = st.text_input("Enter your registered Email or Phone Number")
-
+with tab2:
+    st.subheader("Clock In")
+    identifier = st.text_input("Enter Email or Phone")
     if st.button("Clock In"):
-        user_row = users_df[(users_df["Email"] == identifier) | (users_df["Phone"] == identifier)]
-
-        if user_row.empty:
-            st.error("❌ Identifier not found. Please register first.")
-        elif identifier in attendance_df["Email/Phone"].values:
-            st.info("✅ You already clocked in today.")
+        if not identifier:
+            st.error("❌ Please enter your email or phone.")
         else:
-            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            name = user_row.iloc[0]["Name"]
-            new_entry = pd.DataFrame([[identifier, name, now]], columns=attendance_df.columns)
-            new_entry.to_csv(ATTENDANCE_FILE, mode='a', header=False, index=False)
-            st.success(f"✅ Clock-in recorded at {now}")
+            clock_in(identifier)
 
-# Admin View
-st.markdown("---")
-if st.checkbox("🔒 Admin Access: View Today's Attendance"):
-    admin_password = st.text_input("Enter admin password", type="password")
-    if admin_password == "admin123":
-        st.success("Admin access granted.")
-        st.dataframe(pd.read_csv(ATTENDANCE_FILE))
-    elif admin_password:
-        st.error("Access denied.")
+# Optional: View data
+with st.expander("📄 View Attendance Data"):
+    st.dataframe(attendance_df)
