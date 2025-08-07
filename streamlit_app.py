@@ -84,14 +84,14 @@ def admin_view(identifier):
     org = admin_user["Org"].values[0]
     org_attendance = attendance[attendance["Org"] == org]
 
-    st.subheader(f"Attendance Records for {org}")
+    st.subheader(f"⏱️Attendance Records for {org}")
     st.dataframe(org_attendance)
 
     csv = org_attendance.to_csv(index=False).encode('utf-8')
     st.download_button("Download CSV", csv, f"{org}_attendance.csv", "text/csv")
 
 # Streamlit UI
-st.title("📅 Attendance App")
+st.title("Attendance App")
 
 menu = st.sidebar.selectbox("Menu", ["Register", "Clock In", "Admin View", "Create Organization"])
 
