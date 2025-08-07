@@ -47,12 +47,18 @@ def clock_in_user(identifier, org, biometric_used):
         st.error("❌ Identifier not found. Please register first.")
         return
 
-    user_org = user['Org'].values[0]
+    # Normalize the identifier for consistent matching and logging
+    user_email = user['Email'].values[0]
+    user_phone = user['Phone'].values[0]
     user_name = user['Name'].values[0]
+    user_org = user['Org'].values[0]
     today = datetime.today().date()
 
+    # Prefer email if available, else phone
+    normalized_id = user_email if user_email else user_phone
+
     existing = attendance[
-        (attendance['Email/Phone'] == identifier) &
+        (attendance['Email/Phone'] == normalized_id) &
         (attendance['Clock In Date'] == str(today)) &
         (attendance['Org'] == user_org)
     ]
@@ -62,13 +68,14 @@ def clock_in_user(identifier, org, biometric_used):
         return
 
     new_row = {
-        "Email/Phone": identifier,
+        "Email/Phone": normalized_id,
         "Name": user_name,
         "Org": user_org,
         "Clock In Date": str(today),
         "Time": datetime.now().strftime("%H:%M:%S"),
         "Biometric Used": biometric_used
     }
+
     st.session_state.attendance = pd.concat([st.session_state.attendance, pd.DataFrame([new_row])], ignore_index=True)
     st.success("✅ Clocked in successfully.")
 
