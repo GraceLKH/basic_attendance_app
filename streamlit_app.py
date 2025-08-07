@@ -2,118 +2,112 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
-import base64
 
-# File to store user registration
-USER_DATA_FILE = "users.csv"
-ATTENDANCE_LOG_FILE = "attendance_log.csv"
+DATA_FILE = "attendance_data.csv"
+ADMIN_PASSWORD = "admin123"  # Change to your secure admin password
 
-# Ensure files exist
-if not os.path.exists(USER_DATA_FILE):
-    pd.DataFrame(columns=["Email", "Phone", "Name", "Gender", "Age", "Home Address"]).to_csv(USER_DATA_FILE, index=False)
 
-if not os.path.exists(ATTENDANCE_LOG_FILE):
-    pd.DataFrame(columns=["Identifier", "Name", "Clock In Time", "Date", "Biometric"]).to_csv(ATTENDANCE_LOG_FILE, index=False)
+def load_data():
+    if os.path.exists(DATA_FILE):
+        df = pd.read_csv(DATA_FILE, dtype={"Phone": str})
+    else:
+        df = pd.DataFrame(columns=[
+            "Email", "Phone", "Name", "Gender", "Age", "Home Address",
+            "Clock In Date", "Clock In Time", "Used Biometric"
+        ])
+    return df
 
-# Load user data
-user_df = pd.read_csv(USER_DATA_FILE, dtype={"Phone": str})
-attendance_df = pd.read_csv(ATTENDANCE_LOG_FILE, dtype={"Identifier": str})
 
-# Title
-st.title("📋 Biometric Attendance System")
+def save_data(df):
+    df.to_csv(DATA_FILE, index=False)
 
-menu = st.sidebar.selectbox("Select Action", ["Register", "Clock In", "Admin Panel"])
 
-# ------------------------------------
-# 🔹 1. REGISTER
-# ------------------------------------
-if menu == "Register":
-    st.header("📝 User Registration")
-    with st.form("register_form"):
-        email = st.text_input("Email")
-        phone = st.text_input("Phone Number")
-        name = st.text_input("Full Name")
-        gender = st.selectbox("Gender", ["Male", "Female", "Other"])
-        age = st.number_input("Age", min_value=1, step=1)
-        address = st.text_area("Home Address (optional)")
-        submitted = st.form_submit_button("Register")
+def register_user(email, phone, name, gender, age, address):
+    df = load_data()
+    if not ((df['Email'] == email) | (df['Phone'] == phone)).any():
+        new_user = pd.DataFrame([{
+            "Email": email,
+            "Phone": phone,
+            "Name": name,
+            "Gender": gender,
+            "Age": age,
+            "Home Address": address,
+            "Clock In Date": "",  # No clock in yet
+            "Clock In Time": "",
+            "Used Biometric": ""
+        }])
+        df = pd.concat([df, new_user], ignore_index=True)
+        save_data(df)
+        st.success("✅ Registration successful!")
+    else:
+        st.warning("⚠️ User already registered.")
 
-    if submitted:
-        if not email and not phone:
-            st.error("❌ Please provide either Email or Phone number.")
+
+def clock_in(identifier, biometric_used):
+    df = load_data()
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    now_time = datetime.datetime.now().strftime("%H:%M:%S")
+
+    user_idx = df[(df["Email"] == identifier) | (df["Phone"] == identifier)].index
+
+    if not user_idx.empty:
+        user_row = df.loc[user_idx[0]]
+
+        # Check if already clocked in today
+        if user_row["Clock In Date"] == today:
+            st.info("ℹ️ You have already clocked in today.")
         else:
-            identifier = email if email else phone
-            if ((user_df['Email'] == email) | (user_df['Phone'] == phone)).any():
-                st.warning("⚠️ Email or phone already registered.")
-            else:
-                new_user = pd.DataFrame([{
-                    "Email": email,
-                    "Phone": phone,
-                    "Name": name,
-                    "Gender": gender,
-                    "Age": age,
-                    "Home Address": address
-                }])
-                user_df = pd.concat([user_df, new_user], ignore_index=True)
-                user_df.to_csv(USER_DATA_FILE, index=False)
-                st.success("✅ Registration successful!")
+            df.at[user_idx[0], "Clock In Date"] = today
+            df.at[user_idx[0], "Clock In Time"] = now_time
+            df.at[user_idx[0], "Used Biometric"] = biometric_used
+            save_data(df)
+            st.success(f"✅ Clocked in at {now_time}")
+    else:
+        st.error("❌ Identifier not found. Please register first.")
 
-# ------------------------------------
-# 🔹 2. CLOCK IN
-# ------------------------------------
+
+def admin_panel():
+    st.subheader("🔐 Admin Panel")
+    password = st.text_input("Enter Admin Password", type="password")
+    if password == ADMIN_PASSWORD:
+        df = load_data()
+        st.success("✅ Access granted.")
+        st.dataframe(df)
+        st.download_button("📥 Download Attendance CSV", df.to_csv(index=False), file_name="attendance.csv")
+    else:
+        if password:
+            st.error("❌ Incorrect password")
+
+
+# Streamlit UI
+st.title("📋 Basic Attendance App")
+menu = st.sidebar.selectbox("Menu", ["Register", "Clock In", "Admin"])
+
+if menu == "Register":
+    st.header("📝 Register")
+    email = st.text_input("Email (optional but required if no phone)").strip()
+    phone = st.text_input("Phone (optional but required if no email)").strip()
+    name = st.text_input("Full Name")
+    gender = st.selectbox("Gender", ["Male", "Female", "Other"])
+    age = st.number_input("Age", min_value=1, max_value=100, step=1)
+    address = st.text_area("Home Address (Optional)")
+
+    if st.button("Register"):
+        if email or phone:
+            register_user(email, phone, name, gender, age, address)
+        else:
+            st.error("❌ Please provide at least Email or Phone.")
+
 elif menu == "Clock In":
-    st.header("⏰ Daily Clock-In")
-    identifier_input = st.text_input("Enter your Email or Phone to Clock In")
-    photo = st.camera_input("📷 Capture Biometric Photo (Required)")
+    st.header("⏰ Clock In")
+    identifier = st.text_input("Enter your Email or Phone").strip()
+    biometric = st.checkbox("Use Biometric (Fingerprint)?")
 
     if st.button("Clock In"):
-        if not identifier_input:
-            st.error("❌ Please enter Email or Phone.")
-        elif photo is None:
-            st.error("❌ Please capture biometric photo.")
+        if identifier:
+            clock_in(identifier, "Yes" if biometric else "No")
         else:
-            # Match user
-            matched = user_df[(user_df["Email"] == identifier_input) | (user_df["Phone"] == identifier_input)]
-            if matched.empty:
-                st.error("❌ Identifier not found. Please register first.")
-            else:
-                today = datetime.date.today().strftime("%Y-%m-%d")
-                already_clocked = attendance_df[
-                    (attendance_df["Identifier"] == identifier_input) &
-                    (attendance_df["Date"] == today)
-                ]
-                if not already_clocked.empty:
-                    st.warning("⚠️ Already clocked in today.")
-                else:
-                    clock_in_time = datetime.datetime.now().strftime("%H:%M:%S")
-                    biometric_b64 = base64.b64encode(photo.getvalue()).decode('utf-8')
+            st.error("❌ Please enter your Email or Phone.")
 
-                    attendance_df = pd.concat([attendance_df, pd.DataFrame([{
-                        "Identifier": identifier_input,
-                        "Name": matched.iloc[0]["Name"],
-                        "Clock In Time": clock_in_time,
-                        "Date": today,
-                        "Biometric": biometric_b64
-                    }])], ignore_index=True)
-
-                    attendance_df.to_csv(ATTENDANCE_LOG_FILE, index=False)
-                    st.success("✅ Clock-in successful!")
-
-# ------------------------------------
-# 🔹 3. ADMIN PANEL
-# ------------------------------------
-elif menu == "Admin Panel":
-    st.header("🔐 Admin Panel")
-    admin_password = st.text_input("Enter Admin Password", type="password")
-    
-    if admin_password == "admin123":  # Change this to a secure password
-        st.success("✅ Access granted.")
-        st.subheader("📅 Attendance Records")
-
-        attendance_df = pd.read_csv(ATTENDANCE_LOG_FILE, dtype={"Identifier": str})
-        st.dataframe(attendance_df)
-
-        csv = attendance_df.to_csv(index=False).encode("utf-8")
-        st.download_button("📥 Download Attendance CSV", data=csv, file_name="attendance_log.csv", mime="text/csv")
-    elif admin_password:
-        st.error("❌ Incorrect password.")
+elif menu == "Admin":
+    admin_panel()
