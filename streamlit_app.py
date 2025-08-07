@@ -83,7 +83,7 @@ def register_user(email, phone, name, gender, age, address, org, role="user"):
 
     st.session_state.users = pd.concat([users, pd.DataFrame([new_row])], ignore_index=True)
     save_data()
-    st.success(f"\u2705 Registered {role} successfully!")
+    st.success(f"\✅ Registered {role} successfully!")
 
 def clock_in_user(identifier, org, biometric_used):
     identifier = str(identifier).strip().lower()
@@ -92,7 +92,7 @@ def clock_in_user(identifier, org, biometric_used):
     user = get_user(identifier)
 
     if user.empty:
-        st.error("\u274C Identifier not found. Please register first.")
+        st.error("\❌ Identifier not found. Please register first.")
         return
 
     user_email = user['Email'].values[0]
@@ -128,7 +128,7 @@ def clock_in_user(identifier, org, biometric_used):
 
     st.session_state.attendance = pd.concat([attendance, pd.DataFrame([new_row])], ignore_index=True)
     save_data()
-    st.success("\u2705 Clocked in successfully.")
+    st.success("\✅ Clocked in successfully.")
 
 def admin_view(identifier):
     identifier = str(identifier).strip().lower()
@@ -150,12 +150,12 @@ def admin_view(identifier):
     st.download_button("Download CSV", csv, f"{org}_attendance.csv", "text/csv")
 
 # === Streamlit UI ===
-st.title("\u23F1\ufe0f Attendance App")
+st.title("\⏱️ Attendance App")
 
 menu = st.sidebar.selectbox("Menu", ["Register", "Clock In", "Admin View", "Create Organization"])
 
 if menu == "Create Organization":
-    st.subheader("\ud83d\udc68\u200d\ud83d\udcbc Create Organization")
+    st.subheader("\👨‍💼 Create Organization")
     st.info("This section is for admin to create organizations and register themselves.")
 
     email = st.text_input("Email (Either Email or Phone required)")
@@ -189,7 +189,7 @@ if menu == "Register":
         st.warning("No organizations available. Please ask admin to create one.")
 
 if menu == "Clock In":
-    st.subheader("\u23F1\ufe0f Clock In")
+    st.subheader("\⏱️ Clock In")
     st.info("You only need to enter either Email or Phone.")
 
     use_saved = st.checkbox("Use saved profile")
@@ -222,7 +222,7 @@ if menu == "Clock In":
             st.error("Please enter your Email or Phone.")
 
 if menu == "Admin View":
-    st.subheader("\ud83d\udd10 Admin Login to View Attendance")
+    st.subheader("\🔐 Admin Login to View Attendance")
     admin_input = st.text_input("Admin Email or Phone")
     if st.button("View Attendance"):
         admin_view(admin_input)
