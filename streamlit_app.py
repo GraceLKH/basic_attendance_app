@@ -173,7 +173,7 @@ if menu == "Create Organization":
             st.warning("Organization name is required.")
 
 if menu == "Register":
-    st.subheader("\ud83d\udcdd User Registration")
+    st.subheader("📝 User Registration")
     email = st.text_input("Email (Either Email or Phone required)")
     phone = st.text_input("Phone (Either Email or Phone required)")
     name = st.text_input("Full Name")
