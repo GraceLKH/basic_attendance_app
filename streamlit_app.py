@@ -508,4 +508,4 @@ else:
         admin_view(st.session_state.logged_in_user)
 
     elif menu == "Logout":
-        logout()
+        logout() 
