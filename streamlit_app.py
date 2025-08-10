@@ -478,7 +478,7 @@ def login_ui():
             st.session_state.logged_in_user = user_row.iloc[0].to_dict()
             st.session_state.last_user = st.session_state.logged_in_user
             st.success(tr("login_success", name=st.session_state.logged_in_user.get("Name","(No name)"), role=st.session_state.logged_in_user.get("Role","user")))
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error(tr("user_not_found"))
 
@@ -486,7 +486,7 @@ def logout():
     st.session_state.logged_in_user = None
     st.session_state.admin_authenticated = False
     st.success(tr("logout_success"))
-    st.experimental_rerun()
+    st.rerun()
 
 # === Profile Edit Functions ===
 def update_attendance_records(old_email, old_phone, new_email, new_phone, new_name, new_org):
@@ -635,7 +635,7 @@ def admin_view(user):
             if pwd == correct_pwd:
                 st.session_state.admin_authenticated = True
                 st.success(tr("access_granted"))
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error(tr("unlock_admin_incorrect"))
         return
