@@ -220,7 +220,7 @@ def logout():
     st.rerun()
 
 # === Clock in/out ===
-def clock_in_user(user, biometric_used="No"):
+def clock_in_user(user):
     if not user:
         st.error("User information missing. Please login or register.")
         return
@@ -317,16 +317,8 @@ def clock_out_user(user):
         st.info("You have already clocked out today.")
         return
 
-    # Update Clock Out Time in session state
-    indices = today_records.index
-    st.session_state.attendance.loc[indices, "Clock Out Time"] = now.strftime("%H:%M:%S")
-    save_data()
-    st.success("✅ Clocked out successfully.")
-
-    # Update the actual dataframe in session_state by index
-    indices = attendance_df[mask].index
-    # Use st.session_state.attendance's index to set Clock Out Time
-    st.session_state.attendance.loc[indices, "Clock Out Time"] = now.strftime("%H:%M:%S")
+    # Update Clock Out Time directly in session_state
+    st.session_state.attendance.loc[today_records.index, "Clock Out Time"] = now.strftime("%H:%M:%S")
     save_data()
     st.success("✅ Clocked out successfully.")
 
@@ -472,14 +464,10 @@ else:
         else:
             display_user = st.session_state.logged_in_user
 
-        # Biometric simulation toggle (keeps backward compatibility)
-        biometric_used = st.checkbox("Simulate biometric used for this clock action?", value=False)
-        biometric_val = "Yes" if biometric_used else "No"
-
         col1, col2 = st.columns(2)
         with col1:
             if st.button("✅ Clock In"):
-                clock_in_user(display_user, biometric_used=biometric_val)
+                clock_in_user(display_user)
                 # after successful clock-in, store last_user
                 if display_user:
                     st.session_state.last_user = display_user
@@ -508,4 +496,5 @@ else:
         admin_view(st.session_state.logged_in_user)
 
     elif menu == "Logout":
-        logout() 
+        logout()
+
