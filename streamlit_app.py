@@ -61,7 +61,7 @@ t = {
         "already_clocked_in": "You have already clocked in today.",
         "no_active_clockin": "No active clock-in found for today.",
         "already_clocked_out": "You have already clocked out today.",
-        "attendance_records": "⏱ Your Attendance Records",
+        "attendance_records": "Your Attendance Records",
         "no_records": "No attendance records found.",
         "edit_profile_header": "✏️ Edit Profile",
         "email_label": "Email",
@@ -84,6 +84,19 @@ t = {
         "download_att_csv": "Download {org} Attendance CSV",
         "user_management_org": "👥 User Management ({org})",
         "download_users_csv": "Download {org} Users CSV",
+        "rename_org_header": "🔄 Rename Organization",
+        "rename_org_new_name": "New Organization Name",
+        "rename_org_success": "✅ Organization renamed successfully.",
+        "rename_org_error": "❌ Please provide a valid new organization name.",
+        "delete_org_header": "🗑️ Delete Organization",
+        "delete_org_select": "Select Organization to Delete",
+        "delete_org_transfer": "Transfer Users to",
+        "delete_org_success": "✅ Organization deleted and users transferred successfully.",
+        "delete_org_error": "❌ Please select a different organization to transfer users to.",
+        "combine_org_header": "🔗 Combine Organizations",
+        "combine_org_select": "Select Organization to Combine",
+        "combine_org_success": "✅ Organizations combined successfully.",
+        "combine_org_error": "❌ Please select a different organization to combine.",
         "reset_admin_pwd_header": "🔐 Reset Admin Password for Your Organization",
         "old_admin_pwd": "Enter old admin password",
         "new_admin_pwd": "Enter new admin password",
@@ -157,7 +170,7 @@ t = {
         "already_clocked_in": "您今天已签到。",
         "no_active_clockin": "找不到有效的签到记录。",
         "already_clocked_out": "您今天已签退。",
-        "attendance_records": "⏱ 您的考勤记录",
+        "attendance_records": "您的考勤记录",
         "no_records": "暂无考勤记录。",
         "edit_profile_header": "✏️ 编辑资料",
         "email_label": "邮箱",
@@ -180,6 +193,19 @@ t = {
         "download_att_csv": "下载 {org} 考勤 CSV",
         "user_management_org": "👥 用户管理 ({org})",
         "download_users_csv": "下载 {org} 用户 CSV",
+        "rename_org_header": "🔄 重命名组织",
+        "rename_org_new_name": "新组织名称",
+        "rename_org_success": "✅ 组织名称已成功更改。",
+        "rename_org_error": "❌ 请输入有效的新组织名称。",
+        "delete_org_header": "🗑️ 删除组织",
+        "delete_org_select": "选择要删除的组织",
+        "delete_org_transfer": "将用户转移至",
+        "delete_org_success": "✅ 组织已删除，用户已成功转移。",
+        "delete_org_error": "❌ 请选择不同的组织以转移用户。",
+        "combine_org_header": "🔗 合并组织",
+        "combine_org_select": "选择要合并的组织",
+        "combine_org_success": "✅ 组织已成功合并。",
+        "combine_org_error": "❌ 请选择不同的组织进行合并。",
         "reset_admin_pwd_header": "🔐 重置您组织的管理员密码",
         "old_admin_pwd": "输入旧管理员密码",
         "new_admin_pwd": "输入新管理员密码",
@@ -657,6 +683,7 @@ def admin_view(user):
         "text/csv"
     )
 
+    # Show only this org's users
     st.subheader(tr("user_management_org", org=org))
     org_users = st.session_state.users[
         st.session_state.users["Org"] == org
@@ -672,6 +699,55 @@ def admin_view(user):
     )
 
     st.markdown("---")
+    
+    # Rename Organization
+    st.subheader(tr("rename_org_header"))
+    new_org_name = st.text_input(tr("rename_org_new_name"), value=org)
+    if st.button(tr("rename_org_header")):
+        if new_org_name and new_org_name != org:
+            st.session_state.organizations[st.session_state.organizations.index(org)] = new_org_name
+            st.session_state.users.loc[st.session_state.users["Org"] == org, "Org"] = new_org_name
+            st.session_state.attendance.loc[st.session_state.attendance["Org"] == org, "Org"] = new_org_name
+            save_data()
+            st.success(tr("rename_org_success"))
+        else:
+            st.error(tr("rename_org_error"))
+
+    # Delete Organization
+    st.subheader(tr("delete_org_header"))
+    delete_org_name = st.selectbox(tr("delete_org_select"), st.session_state.organizations)
+    transfer_to_org = st.selectbox(tr("delete_org_transfer"), st.session_state.organizations)
+    if st.button(tr("delete_org_header")):
+        if delete_org_name and delete_org_name != transfer_to_org:
+            st.session_state.users.loc[st.session_state.users["Org"] == delete_org_name, "Org"] = transfer_to_org
+            st.session_state.attendance.loc[st.session_state.attendance["Org"] == delete_org_name, "Org"] = transfer_to_org
+            st.session_state.organizations.remove(delete_org_name)
+            save_data()
+            st.success(tr("delete_org_success"))
+        else:
+            st.error(tr("delete_org_error"))
+
+    # Combine Organizations (Multiple Selection)
+    st.subheader(tr("combine_org_header"))
+    orgs_to_combine = st.multiselect(
+        tr("combine_org_select"), 
+        [o for o in st.session_state.organizations if o != org]
+    )
+    if st.button(tr("combine_org_header")):
+        if orgs_to_combine:
+            for combine_org in orgs_to_combine:
+                st.session_state.users.loc[st.session_state.users["Org"] == combine_org, "Org"] = org
+                st.session_state.attendance.loc[st.session_state.attendance["Org"] == combine_org, "Org"] = org
+                if combine_org in st.session_state.organizations:
+                    st.session_state.organizations.remove(combine_org)
+            save_data()
+            st.success(tr("combine_org_success"))
+        else:
+            st.error(tr("combine_org_error"))
+
+    st.markdown("---")
+    
+    # Reset Admin Password
     st.subheader(tr("reset_admin_pwd_header"))
     old_pwd = st.text_input(tr("old_admin_pwd"), type="password", key="old_admin_pwd")
     new_pwd = st.text_input(tr("new_admin_pwd"), type="password", key="new_admin_pwd")
