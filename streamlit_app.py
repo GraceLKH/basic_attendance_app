@@ -420,7 +420,7 @@ if not st.session_state.logged_in_user:
         phone = st.text_input("Phone (e.g., 0123456789)", key="reg_phone")
         name = st.text_input("Full Name", key="reg_name")
         gender = st.selectbox("Gender", ["Male", "Female", "Other"], key="reg_gender")
-        age = st.number_input("Age", min_value=10, max_value=120, key="reg_age")
+        age = st.number_input("Age", min_value=0, max_value=200, key="reg_age")
         address = st.text_input("Home Address (Optional)", key="reg_address")
 
         if st.session_state.organizations:
@@ -434,8 +434,8 @@ if not st.session_state.logged_in_user:
 
     elif menu == "Create Organization":
         st.subheader("👨‍💼 Create Organization (Admin)")
-        email = st.text_input("Admin Email", key="create_email")
-        phone = st.text_input("Admin Phone", key="create_phone")
+        email = st.text_input("Admin Email (e.g., xyz@gmail.com)", key="create_email")
+        phone = st.text_input("Admin Phone (e.g., 0123456789)", key="create_phone")
         name = st.text_input("Admin Name", key="create_name")
         gender = st.selectbox("Gender", ["Male", "Female", "Other"], key="create_gender")
         age = st.number_input("Age", min_value=0, max_value=200, key="create_age")
