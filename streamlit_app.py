@@ -15,6 +15,7 @@ DEFAULT_ADMIN_PASSWORD = "admin123"  # Default password for new orgs
 # === Translation dictionary (English / 中文) ===
 t = {
     "English": {
+        "nav_page":"Navigation Page & Language Setting",
         "language_label": "🌐 Language",
         "title": "⏱️ Attendance App",
         "menu": "Menu",
@@ -110,6 +111,7 @@ t = {
         "organizations_label": "Organizations",
     },
     "中文": {
+        "nav_page":"导航页面 & 语言设置",
         "language_label": "🌐 语言",
         "title": "⏱️ 考勤系统",
         "menu": "菜单",
@@ -692,7 +694,7 @@ def admin_view(user):
 
 # === App UI ===
 # Language selector in sidebar
-st.sidebar.title(tr("language_label"))
+st.sidebar.title(tr("nav_page"))
 language_choice = st.sidebar.selectbox(
     tr("language_label"),
     ["English", "中文"],
