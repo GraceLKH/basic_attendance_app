@@ -157,7 +157,7 @@ t = {
         "already_clocked_in": "您今天已签到。",
         "no_active_clockin": "找不到有效的签到记录。",
         "already_clocked_out": "您今天已签退。",
-        "attendance_records": "⏱您的考勤记录",
+        "attendance_records": "⏱ 您的考勤记录",
         "no_records": "暂无考勤记录。",
         "edit_profile_header": "✏️ 编辑资料",
         "email_label": "邮箱",
