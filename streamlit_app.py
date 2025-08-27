@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 import pytz
 import re
+import shutil
 
 # === Files ===
 USERS_FILE = "users.csv"
@@ -11,6 +12,7 @@ ATTENDANCE_FILE = "attendance.csv"
 ORG_FILE = "orgs.csv"
 ORG_PASSWORD_FILE = "org_passwords.csv"  # per-org admin passwords
 DEFAULT_ADMIN_PASSWORD = "admin123"  # Default password for new orgs
+BACKUP_DIR = "backups"
 
 # === Translation dictionary (English / 中文) ===
 t = {
@@ -122,6 +124,16 @@ t = {
         "password_reset_success": "✅ Password reset for {email}",
         "unlock_admin_incorrect": "❌ Incorrect password.",
         "organizations_label": "Organizations",
+        # new admin-upload related translations
+        "upload_replace_header": "Upload CSV to Replace Users",
+        "confirm_replace_checkbox": "Confirm replace users (a backup will be created)",
+        "replace_now": "Replace Users Now",
+        "backup_created": "Backup created: {backup}",
+        "manage_backups": "Manage Backups",
+        "select_backup_restore": "Select a backup to restore",
+        "restore_success": "Restored users from backup: {backup}",
+        "download_backup": "Download Selected Backup",
+        "upload_error_missing_columns": "Uploaded CSV must contain at least these columns: Name and Org and (Email or Phone).",
     },
     "中文": {
         "nav_page":"导航页面 & 语言设置",
@@ -231,6 +243,16 @@ t = {
         "password_reset_success": "✅ 已为 {email} 重置密码",
         "unlock_admin_incorrect": "❌ 密码错误。",
         "organizations_label": "组织列表",
+        # new admin-upload related translations (中文)
+        "upload_replace_header": "上传 CSV 以替换用户",
+        "confirm_replace_checkbox": "确认替换用户（将创建备份）",
+        "replace_now": "立即替换用户",
+        "backup_created": "备份已创建：{backup}",
+        "manage_backups": "备份管理",
+        "select_backup_restore": "选择要还原的备份",
+        "restore_success": "已从备份还原用户：{backup}",
+        "download_backup": "下载所选备份",
+        "upload_error_missing_columns": "上传的 CSV 必须至少包含这些列：Name, Org, 以及 (Email 或 Phone)。",
     }
 }
 
@@ -280,11 +302,32 @@ def normalize_identifier(identifier):
         return s.lower()
     return clean_phone(s)
 
+# === Persistence & backup helpers ===
+def ensure_backup_dir():
+    if not os.path.exists(BACKUP_DIR):
+        os.makedirs(BACKUP_DIR)
+
+def backup_users():
+    ensure_backup_dir()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_file = os.path.join(BACKUP_DIR, f"users_backup_{timestamp}.csv")
+    if os.path.exists(USERS_FILE):
+        shutil.copy(USERS_FILE, backup_file)
+    else:
+        # if no users.csv yet, still create empty backup for traceability
+        pd.DataFrame(columns=st.session_state.get("users", pd.DataFrame()).columns).to_csv(backup_file, index=False)
+    return backup_file
+
+def list_backups():
+    ensure_backup_dir()
+    return sorted([f for f in os.listdir(BACKUP_DIR) if f.startswith("users_backup")], reverse=True)
+
 # === Load and Save ===
 def load_data():
     try:
         if os.path.exists(USERS_FILE):
             users = pd.read_csv(USERS_FILE, dtype=str).fillna("")
+            # ensure columns exist
             for c in ["Email", "Phone", "Name", "Gender", "Age", "Address", "Org", "Role"]:
                 if c not in users.columns:
                     users[c] = ""
@@ -536,6 +579,9 @@ def update_attendance_records(old_email, old_phone, new_email, new_phone, new_na
 
 # === Profile Edit ===
 def edit_profile(user):
+    if not user:
+        st.error(tr("user_not_found"))
+        return
     st.subheader(tr("edit_profile_header"))
     old_email = user.get("Email", "")
     old_phone = user.get("Phone", "")
@@ -645,7 +691,7 @@ def clock_out_user(user):
     save_data()
     st.success(tr("clockout_success"))
 
-# === Admin view ===
+# === Admin view with upload, backup, restore ===
 def admin_view(user):
     if not user or user.get("Role", "").lower() != "admin":
         st.error(tr("admin_only"))
@@ -683,7 +729,9 @@ def admin_view(user):
         "text/csv"
     )
 
-    # Show only this org's users
+    st.markdown("---")
+
+    # User management section (with download)
     st.subheader(tr("user_management_org", org=org))
     org_users = st.session_state.users[
         st.session_state.users["Org"] == org
@@ -698,9 +746,93 @@ def admin_view(user):
         "text/csv"
     )
 
+    st.markdown("### " + tr("upload_replace_header"))
+    uploaded_file = st.file_uploader(tr("upload_replace_header"), type="csv", help="CSV must include columns: Name, Org and Email or Phone")
+    if uploaded_file:
+        try:
+            df_new = pd.read_csv(uploaded_file, dtype=str).fillna("")
+        except Exception as e:
+            st.error(f"Error reading CSV: {e}")
+            df_new = None
+
+        if df_new is not None:
+            # validate required columns
+            has_name = "Name" in df_new.columns
+            has_org = "Org" in df_new.columns
+            has_email_or_phone = ("Email" in df_new.columns) or ("Phone" in df_new.columns)
+            if not (has_name and has_org and has_email_or_phone):
+                st.error(tr("upload_error_missing_columns"))
+            else:
+                # only consider rows matching this org (or allow admin to upload full org dataset)
+                st.write(f"Uploaded rows: {len(df_new)}")
+                # Option: filter to this org only
+                filter_org = st.checkbox(f"Only use rows where Org == {org} (recommended)", value=True)
+                if filter_org:
+                    df_new_org = df_new[df_new["Org"] == org].copy()
+                else:
+                    df_new_org = df_new.copy()
+
+                st.write(f"Rows to import for this org: {len(df_new_org)}")
+
+                confirm = st.checkbox(tr("confirm_replace_checkbox"))
+                if confirm and st.button(tr("replace_now")):
+                    # Backup current users file
+                    backup_file = backup_users()
+                    # Replace only this org's users while keeping other orgs intact
+                    others = st.session_state.users[st.session_state.users["Org"] != org].copy()
+                    # Normalize uploaded columns to match schema
+                    # Ensure all expected columns exist in df_new_org
+                    for col in ["Email", "Phone", "Name", "Gender", "Age", "Address", "Org", "Role"]:
+                        if col not in df_new_org.columns:
+                            df_new_org[col] = ""
+                    # normalize email/phone
+                    df_new_org["Email"] = df_new_org["Email"].apply(lambda x: str(x).strip().lower() if x else "")
+                    df_new_org["Phone"] = df_new_org["Phone"].apply(lambda x: clean_phone(x))
+                    # Compose new users df
+                    new_users_df = pd.concat([others, df_new_org[["Email", "Phone", "Name", "Gender", "Age", "Address", "Org", "Role"]]], ignore_index=True)
+                    st.session_state.users = new_users_df
+                    # Ensure organizations list includes uploaded orgs
+                    uploaded_orgs = sorted(set([o for o in df_new_org["Org"].unique() if str(o).strip() != ""]))
+                    for o in uploaded_orgs:
+                        if o not in st.session_state.organizations:
+                            st.session_state.organizations.append(o)
+                            st.session_state.org_admin_passwords[o] = st.session_state.org_admin_passwords.get(o, DEFAULT_ADMIN_PASSWORD)
+                    save_data()
+                    st.success(tr("backup_created", backup=backup_file))
+                    st.success(f"Replaced users for org {org}. Imported rows: {len(df_new_org)}")
+
+    # Backup management section
+    st.markdown("### " + tr("manage_backups"))
+    backups = list_backups()
+    if backups:
+        selected_backup = st.selectbox(tr("select_backup_restore"), backups)
+        if st.button(tr("restore_success", backup="{backup}").split("{backup}")[0] + "Restore Selected Backup"):
+            backup_path = os.path.join(BACKUP_DIR, selected_backup)
+            try:
+                restored = pd.read_csv(backup_path, dtype=str).fillna("")
+                # backup current before restore
+                pre_backup = backup_users()
+                st.session_state.users = restored[["Email", "Phone", "Name", "Gender", "Age", "Address", "Org", "Role"]].copy() if all(c in restored.columns for c in ["Email", "Phone", "Name", "Org"]) else restored
+                # update organizations from restored
+                restored_orgs = sorted(set([o for o in st.session_state.users["Org"].unique() if str(o).strip() != ""]))
+                for o in restored_orgs:
+                    if o not in st.session_state.organizations:
+                        st.session_state.organizations.append(o)
+                save_data()
+                st.success(tr("restore_success", backup=selected_backup))
+                st.info(f"Made a pre-restore backup: {pre_backup}")
+            except Exception as e:
+                st.error(f"Error restoring backup: {e}")
+
+        backup_path = os.path.join(BACKUP_DIR, selected_backup)
+        if os.path.exists(backup_path):
+            with open(backup_path, "rb") as f:
+                st.download_button(tr("download_backup"), f, file_name=selected_backup)
+    else:
+        st.info("No backups available.")
+
     st.markdown("---")
-    
-    # Rename Organization
+    # other admin controls continued...
     st.subheader(tr("rename_org_header"))
     new_org_name = st.text_input(tr("rename_org_new_name"), value=org)
     if st.button(tr("rename_org_header")):
@@ -730,7 +862,7 @@ def admin_view(user):
     # Combine Organizations (Multiple Selection)
     st.subheader(tr("combine_org_header"))
     orgs_to_combine = st.multiselect(
-        tr("combine_org_select"), 
+        tr("combine_org_select"),
         [o for o in st.session_state.organizations if o != org]
     )
     if st.button(tr("combine_org_header")):
@@ -746,7 +878,7 @@ def admin_view(user):
             st.error(tr("combine_org_error"))
 
     st.markdown("---")
-    
+
     # Reset Admin Password
     st.subheader(tr("reset_admin_pwd_header"))
     old_pwd = st.text_input(tr("old_admin_pwd"), type="password", key="old_admin_pwd")
